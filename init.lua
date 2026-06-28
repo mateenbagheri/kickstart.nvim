@@ -157,6 +157,26 @@ vim.api.nvim_create_autocmd({ 'FocusLost', 'BufLeave' }, {
   command = 'silent! wall',
 })
 
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = '*.go',
+  callback = function()
+    local params = vim.lsp.util.make_range_params(0, 'utf-8')
+    params.context = {
+      only = { 'source.organizeImports' },
+      diagnostics = {},
+    }
+
+    local result = vim.lsp.buf_request_sync(0, 'textDocument/codeAction', params, 1000)
+
+    for _, res in pairs(result or {}) do
+      for _, action in pairs(res.result or {}) do
+        if action.edit then vim.lsp.util.apply_workspace_edit(action.edit, 'utf-8') end
+        if action.command then vim.lsp.buf.execute_command(action.command) end
+      end
+    end
+  end,
+})
+
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'go',
   callback = function()
@@ -194,6 +214,9 @@ require('lazy').setup({
   -- NOTE: Plugins can be added via a link or github org/name. To run setup automatically, use `opts = {}`
   { 'NMAC427/guess-indent.nvim', opts = {} },
 
+  {
+    'jwalton512/vim-blade',
+  },
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
   -- If you prefer to call `setup` explicitly, use:
   --    {
@@ -235,7 +258,6 @@ require('lazy').setup({
   --
   -- Then, because we use the `opts` key (recommended), the configuration runs
   -- after the plugin has been loaded as `require(MODULE).setup(opts)`.
-
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
     event = 'VimEnter',
@@ -259,6 +281,22 @@ require('lazy').setup({
   -- you do for a plugin at the top level, you can do for a dependency.
   --
   -- Use the `dependencies` key to specify the dependencies of a particular plugin
+
+  -- vim dotenv is [obviously] for env file support
+  {
+    'tpope/vim-dotenv',
+  },
+
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'MunifTanjim/nui.nvim',
+      'nvim-tree/nvim-web-devicons', -- optional, but recommended
+    },
+    lazy = false, -- neo-tree will lazily load itself
+  },
 
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
@@ -530,7 +568,12 @@ require('lazy').setup({
       --  See `:help lsp-config` for information about keys and how to configure
       local servers = {
         -- clangd = {},
-        gopls = {},
+        gopls = {
+          completeUnimported = true,
+          usePlaceholders = true,
+          staticcheck = true,
+          gofumpt = true,
+        },
         pyright = {},
         -- rust_analyzer = {},
         --
@@ -566,6 +609,7 @@ require('lazy').setup({
         'pyright',
         'isort',
         'black',
+        'intelephense',
         -- You can add other tools here that you want Mason to install
       })
 
@@ -649,6 +693,8 @@ require('lazy').setup({
         python = { 'isort', 'black' },
         --
         go = { 'gofumpt' },
+        --
+        php = { 'pint' },
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
       },
@@ -766,24 +812,23 @@ require('lazy').setup({
       -- Load the colorscheme here.
       -- Like many other themes, this one has different styles, and you could load
       -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
+      -- vim.cmd.colorscheme 'tokyonight-night'
     end,
   },
 
-  { 'catppuccin/nvim', name = 'catppuccin', priority = 1000 },
+  -- { 'catppuccin/nvim', name = 'catppuccin', priority = 1000 },
 
   -- lua/plugins/rose-pine.lua
   {
     'rose-pine/neovim',
     name = 'rose-pine',
-    config = function() vim.cmd 'colorscheme rose-pine' end,
   },
   {
     'rebelot/kanagawa.nvim',
     priority = 1000, -- Load this before other start plugins
     config = function()
       -- Load the colorscheme
-      vim.cmd.colorscheme 'kanagawa'
+      vim.cmd.colorscheme 'kanagawa-wave'
 
       -- Optional: Configure Kanagawa with your preferred style
       -- require('kanagawa').setup({
@@ -858,7 +903,22 @@ require('lazy').setup({
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     config = function()
-      local filetypes = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+      local filetypes = {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'php',
+        'blade',
+      }
+
       require('nvim-treesitter').install(filetypes)
       vim.api.nvim_create_autocmd('FileType', {
         pattern = filetypes,

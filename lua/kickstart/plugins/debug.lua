@@ -126,9 +126,27 @@ return {
     -- Install golang specific config
     require('dap-go').setup {
       delve = {
-        -- On Windows delve must be run attached or it crashes.
-        -- See https://github.com/leoluz/nvim-dap-go/blob/main/README.md#configuring
         detached = vim.fn.has 'win32' == 0,
+      },
+      dap_configurations = {
+        {
+          type = 'go',
+          name = 'Debug file',
+          request = 'launch',
+          program = '${file}',
+        },
+        {
+          type = 'go',
+          name = 'Debug package (current dir)',
+          request = 'launch',
+          program = '${fileDirname}',
+        },
+        {
+          type = 'go',
+          name = 'Debug module root (fix cmd/ cases)',
+          request = 'launch',
+          program = '${workspaceFolder}',
+        },
       },
     }
   end,
