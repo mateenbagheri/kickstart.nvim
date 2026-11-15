@@ -1,47 +1,87 @@
 -- Health check for this config. Run with :checkhealth config
+local platform = require 'util.os'
+local health = vim.health
 
-local check_version = function()
-  local verstr = tostring(vim.version())
-  if not vim.version.ge then
-    vim.health.error(string.format("Neovim out of date: '%s'. Upgrade to latest stable or nightly", verstr))
-    return
-  end
+-- Install hints per tool: { windows = 'winget ...', mac = 'brew ...' }
+local hints = {
+  git = { windows = 'winget install Git.Git', mac = 'xcode-select --install' },
+  rg = { windows = 'winget install BurntSushi.ripgrep.MSVC', mac = 'brew install ripgrep' },
+  fd = { windows = 'winget install sharkdp.fd', mac = 'brew install fd' },
+  unzip = { windows = 'included with Git for Windows', mac = 'preinstalled' },
+  make = { windows = 'winget install ezwinports.make', mac = 'xcode-select --install' },
+  cmake = { windows = 'winget install Kitware.CMake', mac = 'brew install cmake' },
+  ['tree-sitter'] = { windows = 'npm install -g tree-sitter-cli', mac = 'npm install -g tree-sitter-cli' },
+  cc = { windows = 'winget install zig.zig', mac = 'xcode-select --install' },
+  node = { windows = 'winget install OpenJS.NodeJS.LTS', mac = 'brew install node' },
+  go = { windows = 'winget install GoLang.Go', mac = 'brew install go' },
+  python = { windows = 'winget install Python.Python.3.13', mac = 'brew install python' },
+}
 
-  if vim.version.ge(vim.version(), '0.11') then
-    vim.health.ok(string.format("Neovim version is: '%s'", verstr))
-  else
-    vim.health.error(string.format("Neovim out of date: '%s'. Upgrade to latest stable or nightly", verstr))
-  end
+local function hint(name)
+  local h = hints[name]
+  if not h then return nil end
+  return platform.is_windows and h.windows or h.mac
 end
 
-local check_external_reqs = function()
-  -- Basic utils: `git`, `make`, `unzip`
-  for _, exe in ipairs { 'git', 'make', 'unzip', 'rg' } do
-    local is_executable = vim.fn.executable(exe) == 1
-    if is_executable then
-      vim.health.ok(string.format("Found executable: '%s'", exe))
-    else
-      vim.health.warn(string.format("Could not find executable: '%s'", exe))
-    end
+---@param name string label shown in the report
+---@param exes string[] any of these satisfies the check
+---@param level 'error'|'warn'
+---@param why string
+local function check_tool(name, exes, level, why)
+  local found = platform.first(exes)
+  if found then
+    health.ok(('%s: found `%s`'):format(name, found))
+  else
+    local msg = ('%s: not found (%s)'):format(name, why)
+    local advice = hint(name)
+    health[level](msg, advice and { 'Install: ' .. advice } or nil)
   end
-
-  return true
 end
 
 return {
   check = function()
-    vim.health.start 'config'
+    health.start 'config: system'
+    local uname = vim.uv.os_uname()
+    health.info(('OS: %s %s'):format(uname.sysname, uname.release))
 
-    vim.health.info [[NOTE: Not every warning is a 'must-fix' in `:checkhealth`
+    local ver = tostring(vim.version())
+    if vim.version.ge(vim.version(), '0.11') then
+      health.ok('Neovim ' .. ver)
+    else
+      health.error('Neovim ' .. ver .. ' is too old; 0.11+ is required')
+    end
 
-  Fix only warnings for plugins and languages you intend to use.
-    Mason will give warnings for languages that are not installed.
-    You do not need to install, unless you want to use those languages!]]
+    if vim.g.have_nerd_font then health.info 'vim.g.have_nerd_font = true: make sure your terminal uses a Nerd Font' end
 
-    local uv = vim.uv or vim.loop
-    vim.health.info('System Information: ' .. vim.inspect(uv.os_uname()))
+    health.start 'config: required tools'
+    check_tool('git', { 'git' }, 'error', 'needed to install plugins')
+    check_tool('rg', { 'rg' }, 'warn', 'needed for Telescope live grep')
+    if not platform.is_windows then check_tool('unzip', { 'unzip' }, 'warn', 'Mason uses it to unpack tools') end
+    check_tool('tree-sitter', { 'tree-sitter' }, 'warn', 'needed to compile treesitter parsers')
+    check_tool('cc', platform.c_compilers, 'warn', 'a C compiler is needed to compile treesitter parsers')
 
-    check_version()
-    check_external_reqs()
+    health.start 'config: optional tools'
+    check_tool('fd', { 'fd', 'fdfind' }, 'warn', 'faster file search in Telescope')
+    if platform.is_windows then
+      if platform.has 'make' then
+        check_tool('make', { 'make' }, 'warn', 'builds telescope-fzf-native')
+      else
+        check_tool('cmake', { 'cmake' }, 'warn', 'builds telescope-fzf-native; without it the slower Lua sorter is used')
+      end
+    else
+      check_tool('make', { 'make' }, 'warn', 'builds telescope-fzf-native and LuaSnip jsregexp')
+    end
+
+    health.start 'config: language toolchains'
+    check_tool('node', { 'node' }, 'warn', 'needed by pyright and markdownlint')
+    check_tool('go', { 'go' }, 'warn', 'needed by gopls, delve and the Go tools Mason installs')
+    check_tool('python', { 'python3', 'python' }, 'warn', 'needed by debugpy, black and isort')
+
+    local debugpy = platform.venv_python(platform.mason_path('packages', 'debugpy', 'venv'))
+    if platform.has(debugpy) then
+      health.ok('debugpy: ' .. debugpy)
+    else
+      health.warn('debugpy not installed by Mason yet; Python debugging will use the python on PATH', { 'Run :MasonInstall debugpy' })
+    end
   end,
 }

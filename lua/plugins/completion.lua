@@ -6,9 +6,10 @@ return {
     {
       'L3MON4D3/LuaSnip',
       version = '2.*',
-      -- jsregexp needs `make`; skipped on Windows where the build usually fails
+      -- jsregexp (regex snippet transforms) needs `make`; skipped on Windows where the build usually fails
       build = (function()
-        if vim.fn.has 'win32' == 1 or vim.fn.executable 'make' == 0 then return end
+        local platform = require 'util.os'
+        if platform.is_windows or not platform.has 'make' then return end
         return 'make install_jsregexp'
       end)(),
       opts = {},

@@ -17,19 +17,24 @@ autocmd('BufWritePre', {
   desc = 'Organize Go imports on save',
   group = augroup 'go-organize-imports',
   pattern = '*.go',
-  callback = function()
-    local params = vim.lsp.util.make_range_params(0, 'utf-8')
+  callback = function(args)
+    local client = vim.lsp.get_clients({ bufnr = args.buf, name = 'gopls' })[1]
+    if not client then return end
+
+    local params = vim.lsp.util.make_range_params(0, client.offset_encoding)
     params.context = {
       only = { 'source.organizeImports' },
       diagnostics = {},
     }
 
-    local result = vim.lsp.buf_request_sync(0, 'textDocument/codeAction', params, 1000)
-
-    for _, res in pairs(result or {}) do
-      for _, action in pairs(res.result or {}) do
-        if action.edit then vim.lsp.util.apply_workspace_edit(action.edit, 'utf-8') end
-        if action.command then vim.lsp.buf.execute_command(action.command) end
+    -- Synchronous so the edits land before the buffer is written
+    local res = client:request_sync('textDocument/codeAction', params, 1000, args.buf)
+    for _, action in ipairs(res and res.result or {}) do
+      if action.edit then vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding) end
+      if type(action.command) == 'table' then
+        client:exec_cmd(action.command, { bufnr = args.buf })
+      elseif type(action.command) == 'string' then
+        client:exec_cmd(action --[[@as lsp.Command]], { bufnr = args.buf })
       end
     end
   end,

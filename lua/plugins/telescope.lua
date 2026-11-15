@@ -1,3 +1,14 @@
+local platform = require 'util.os'
+
+-- Native fzf sorter: built with make (macOS/Linux) or cmake (Windows without make).
+-- Without either, Telescope falls back to its built-in Lua sorter.
+local fzf_build = (function()
+  if platform.has 'make' then return 'make' end
+  if platform.has 'cmake' then
+    return 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 && cmake --build build --config Release'
+  end
+end)()
+
 return {
   'nvim-telescope/telescope.nvim',
   event = 'VimEnter',
@@ -5,8 +16,8 @@ return {
     'nvim-lua/plenary.nvim',
     {
       'nvim-telescope/telescope-fzf-native.nvim',
-      build = 'make',
-      cond = function() return vim.fn.executable 'make' == 1 end,
+      build = fzf_build,
+      cond = fzf_build ~= nil,
     },
     { 'nvim-telescope/telescope-ui-select.nvim' },
     { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },

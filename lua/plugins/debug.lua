@@ -22,11 +22,19 @@ return {
     local dap = require 'dap'
     local dapui = require 'dapui'
 
+    local platform = require 'util.os'
+
     require('mason-nvim-dap').setup {
       automatic_installation = true,
-      handlers = {},
+      handlers = {
+        -- Default handler sets up every installed adapter...
+        function(config) require('mason-nvim-dap').default_setup(config) end,
+        -- ...except Python, which dap-python configures below
+        python = function() end,
+      },
       ensure_installed = {
         'delve',
+        'python', -- debugpy
       },
     }
 
@@ -65,7 +73,7 @@ return {
     require('dap-go').setup {
       delve = {
         -- Delve can't run detached on Windows
-        detached = vim.fn.has 'win32' == 0,
+        detached = not platform.is_windows,
       },
       dap_configurations = {
         {
@@ -88,5 +96,11 @@ return {
         },
       },
     }
+
+    -- Python: use Mason's debugpy venv (Scripts\python.exe on Windows, bin/python elsewhere),
+    -- falling back to whatever python is on PATH
+    local debugpy_python = platform.venv_python(platform.mason_path('packages', 'debugpy', 'venv'))
+    if not platform.has(debugpy_python) then debugpy_python = platform.first { 'python3', 'python' } or 'python' end
+    require('dap-python').setup(debugpy_python)
   end,
 }
