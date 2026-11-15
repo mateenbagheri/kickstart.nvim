@@ -31,12 +31,6 @@ vim.o.showmode = false
 --  See `:help 'clipboard'`
 vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
 
--- Sync clipboard between OS and Neovim.
---  Schedule the setting after `UiEnter` because it can increase startup-time.
---  Remove this option if you want your OS clipboard to remain independent.
---  See `:help 'clipboard'`
-vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
-
 -- Enable break indent
 vim.o.breakindent = true
 
@@ -214,9 +208,6 @@ require('lazy').setup({
   -- NOTE: Plugins can be added via a link or github org/name. To run setup automatically, use `opts = {}`
   { 'NMAC427/guess-indent.nvim', opts = {} },
 
-  {
-    'jwalton512/vim-blade',
-  },
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
   -- If you prefer to call `setup` explicitly, use:
   --    {
@@ -285,17 +276,6 @@ require('lazy').setup({
   -- vim dotenv is [obviously] for env file support
   {
     'tpope/vim-dotenv',
-  },
-
-  {
-    'nvim-neo-tree/neo-tree.nvim',
-    branch = 'v3.x',
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-      'MunifTanjim/nui.nvim',
-      'nvim-tree/nvim-web-devicons', -- optional, but recommended
-    },
-    lazy = false, -- neo-tree will lazily load itself
   },
 
   { -- Fuzzy Finder (files, lsp, etc)
@@ -595,7 +575,6 @@ require('lazy').setup({
       vim.list_extend(ensure_installed, {
         'lua-language-server', -- Lua Language server
         'stylua', -- Used to format Lua code
-        'gopls',
         'gofumpt',
         'goimports',
         'goimports-reviser',
@@ -605,11 +584,8 @@ require('lazy').setup({
         'gotests',
         'delve',
         'debugpy',
-        'python',
-        'pyright',
         'isort',
         'black',
-        'intelephense',
         -- You can add other tools here that you want Mason to install
       })
 
@@ -694,7 +670,6 @@ require('lazy').setup({
         --
         go = { 'gofumpt' },
         --
-        php = { 'pint' },
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
       },
@@ -800,7 +775,7 @@ require('lazy').setup({
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
     'folke/tokyonight.nvim',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
+    lazy = true, -- Not the active theme; loaded on demand (e.g. :colorscheme tokyonight)
     config = function()
       ---@diagnostic disable-next-line: missing-fields
       require('tokyonight').setup {
@@ -822,6 +797,7 @@ require('lazy').setup({
   {
     'rose-pine/neovim',
     name = 'rose-pine',
+    lazy = true, -- Not the active theme; loaded on demand
   },
   {
     'rebelot/kanagawa.nvim',
@@ -915,8 +891,6 @@ require('lazy').setup({
         'query',
         'vim',
         'vimdoc',
-        'php',
-        'blade',
       }
 
       require('nvim-treesitter').install(filetypes)
